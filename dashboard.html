@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Dashboard</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            background: #343a40;
+            min-width: 200px;
+        }
+        .sidebar a, .sidebar li {
+            color: #ffffff;
+        }
+        .dashboard-container {
+            height: 100vh;
+        }
+        .card-title {
+            font-weight: bold;
+        }
+        .form-select, .form-control {
+            min-width: 100px;
+        }
+        .main-content {
+            overflow-y: auto;
+        }
+        .card {
+            border-radius: 10px;
+        }
+        .btn-primary {
+            background: #6f42c1;
+            border: none;
+        }
+        .btn-primary:hover {
+            background: #563d7c;
+        }
+        h1, h5 {
+            font-family: 'Arial', sans-serif;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-container d-flex">
+        <!-- Sidebar -->
+        <div class="sidebar text-white p-3">
+            <h2 class="text-center mb-4">Media Options</h2>
+            <ul class="list-unstyled">
+                {% if platform == 'reddit' %}
+                <li class="mb-3 dropdown">
+                    <a href="#" class="text-white text-decoration-none dropdown-toggle" id="redditDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Reddit</a>
+                    <ul class="dropdown-menu" aria-labelledby="redditDropdown">
+                        <li><a class="dropdown-item" href="#" data-subreddit="movies">r/movies</a></li>
+                        <li><a class="dropdown-item" href="#" data-subreddit="technology">r/technology</a></li>
+                        <li><a class="dropdown-item" href="#" data-subreddit="politics">r/politics</a></li>
+                    </ul>
+                </li>
+                {% elif platform == '4chan' %}
+                <!-- No dropdown for platform selection since we're on 4chan -->
+                <li>4chan</li>
+                {% else %}
+                <li>No platform selected.</li>
+                {% endif %}
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content flex-grow-1 p-4">
+            {% if platform == 'reddit' %}
+            <h1 class="text-center mb-4">Reddit Dashboard</h1>
+
+            <!-- Overall Comments Per Hour Chart (Reddit) -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body position-relative">
+                    <h5 class="card-title">Overall Comments Per Hour (r/politics)</h5>
+                    <canvas id="overallCommentsChart" style="height: 400px;"></canvas>
+                </div>
+            </div>
+
+            <!-- Filtered Comments by Hour -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Filtered Comments by Hour</h5>
+                    <canvas id="filteredCommentsChart" style="height: 400px;"></canvas>
+                    <input type="range" id="hourRange" min="0" max="23" step="1" value="0" class="form-range mt-3">
+                    <p>Selected Hour: <span id="selectedHour">0</span>:00</p>
+                </div>
+            </div>
+
+            <!-- Deleted Posts by Day -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Deleted Posts by Day</h5>
+                    <canvas id="deletedPostsChart" style="height: 400px;"></canvas>
+                    <input type="range" id="deletedHourRange" min="0" max="23" step="1" value="0" class="form-range mt-3">
+                    <p>Selected Hour: <span id="deletedSelectedHour">0</span>:00</p>
+                </div>
+            </div>
+
+            <!-- Reddit Submissions and Filters -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Reddit Submissions and Filters</h5>
+                    <div class="mb-4">
+                        <canvas id="redditSubmissionsChart" style="height: 400px;"></canvas>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h5>Date Range</h5>
+                        <label for="startDate" class="form-label">Start Date:</label>
+                        <input type="date" id="startDate" class="form-control mb-2">
+                        
+                        <label for="endDate" class="form-label">End Date:</label>
+                        <input type="date" id="endDate" class="form-control">
+                        
+                        <button id="fetchSubmissionsData" class="btn btn-primary w-100 mt-3">Show Submissions</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comment Upvotes Distribution -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Comment Upvotes Distribution</h5>
+                    <div class="d-flex mb-3">
+                        <label for="upvotesSubreddit" class="me-2">Select Subreddit:</label>
+                        <select id="upvotesSubreddit" class="form-select me-3" style="width: auto;">
+                            <option value="technology">Technology</option>
+                            <option value="movies">Movies</option>
+                            <option value="politics">Politics</option>
+                        </select>
+
+                        <label for="upvotesStartDate" class="me-2">Start Date:</label>
+                        <input type="date" id="upvotesStartDate" class="form-control me-3" style="width: auto;" value="2024-11-21">
+
+                        <label for="upvotesEndDate" class="me-2">End Date:</label>
+                        <input type="date" id="upvotesEndDate" class="form-control me-3" style="width: auto;" value="2024-11-28">
+
+                        <button id="updateUpvotesChart" class="btn btn-primary">Update Chart</button>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="upvotesChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ask a Question (LLM) -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Ask a Question</h5>
+                    <form id="askQuestionForm">
+                        <div class="mb-3">
+                            <label for="subreddit" class="form-label">Subreddit:</label>
+                            <select id="subreddit" name="subreddit" class="form-select">
+                                <option value="politics" selected>Politics</option>
+                                <option value="movies">Movies</option>
+                                <option value="technology">Technology</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="prompt" class="form-label">Your Question:</label>
+                            <textarea id="prompt" name="prompt" class="form-control" rows="3" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Ask</button>
+                    </form>
+            
+                    <div id="responseBlock" class="mt-4 p-3 bg-light text-dark border rounded" style="display: none;">
+                        <h6>Response:</h6>
+                        <p id="answerText" class="mb-0">Ask a question to see the response here.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Info Cards -->
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card text-center mb-4 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Comments</h5>
+                            <h3 id="total-comments">0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card text-center mb-4 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Peak Hour</h5>
+                            <h3 id="peak-hour">0:00</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card text-center mb-4 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Peak Comments</h5>
+                            <h3 id="peak-comments">0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card text-center mb-4 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Deleted Posts</h5>
+                            <h3 id="total-deleted-posts">0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card text-center mb-4 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Active Users</h5>
+                            <h3 id="active-users">0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card text-center mb-4 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Avg Comments/Hour</h5>
+                            <h3 id="avg-comments-hour">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% elif platform == '4chan' %}
+            <h1 class="text-center mb-4">4chan Dashboard</h1>
+
+            <!-- 4chan Daily Activity Line Chart -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">4chan Daily Activity</h5>
+                    <div class="d-flex align-items-center mb-3">
+                        <label for="dailyBoard" class="me-2">Board:</label>
+                        <select id="dailyBoard" class="form-select me-3" style="width:auto;">
+                            <option value="pol">/pol/</option>
+                            <option value="g">/g/</option>
+                            <option value="tv">/tv/</option>
+                        </select>
+                        <label for="dailyStart" class="me-2">Start Date:</label>
+                        <input type="date" id="dailyStart" class="form-control me-3" value="2024-11-01">
+                        <label for="dailyEnd" class="me-2">End Date:</label>
+                        <input type="date" id="dailyEnd" class="form-control me-3" value="2024-11-14">
+                        <button id="updateDailyChart" class="btn btn-primary">Update</button>
+                    </div>
+                    <canvas id="dailyChart" height="100"></canvas>
+                </div>
+            </div>
+
+            <!-- 4chan Hourly Activity Line Chart -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">4chan Hourly Activity</h5>
+                    <div class="d-flex align-items-center mb-3">
+                        <label for="hourlyBoard" class="me-2">Board:</label>
+                        <select id="hourlyBoard" class="form-select me-3" style="width:auto;">
+                            <option value="pol">/pol/</option>
+                            <option value="g">/g/</option>
+                            <option value="tv">/tv/</option>
+                        </select>
+                        <label for="hourlyStart" class="me-2">Start Date:</label>
+                        <input type="date" id="hourlyStart" class="form-control me-3" value="2024-11-01">
+                        <label for="hourlyEnd" class="me-2">End Date:</label>
+                        <input type="date" id="hourlyEnd" class="form-control me-3" value="2024-11-14">
+                        <button id="updateHourlyChart" class="btn btn-primary">Update</button>
+                    </div>
+                    <canvas id="hourlyChart" height="100"></canvas>
+                </div>
+            </div>
+
+            <!-- Thread Activity Over Time -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Thread Activity Over Time</h5>
+                    <div class="d-flex align-items-center mb-3">
+                        <label for="threadActivityBoard" class="me-2">Board:</label>
+                        <select id="threadActivityBoard" class="form-select me-3" style="width:auto;">
+                            <option value="g">/g/</option>
+                            <option value="tv">/tv/</option>
+                        </select>
+
+                        <label for="threadActivityStart" class="me-2">Start Date:</label>
+                        <input type="date" id="threadActivityStart" class="form-control me-3" value="2024-11-01">
+
+                        <label for="threadActivityEnd" class="me-2">End Date:</label>
+                        <input type="date" id="threadActivityEnd" class="form-control me-3" value="2024-11-14">
+
+                        <button id="updateThreadActivity" class="btn btn-primary">Update</button>
+                    </div>
+                    <canvas id="threadActivityChart" height="100"></canvas>
+                </div>
+            </div>
+
+            <!-- Reply Frequency -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Reply Frequency (Avg Replies/Thread)</h5>
+                    <div class="d-flex align-items-center mb-3">
+                        <label for="replyFreqStart" class="me-2">Start Date:</label>
+                        <input type="date" id="replyFreqStart" class="form-control me-3" value="2024-11-01">
+
+                        <label for="replyFreqEnd" class="me-2">End Date:</label>
+                        <input type="date" id="replyFreqEnd" class="form-control me-3" value="2024-11-14">
+
+                        <button id="updateReplyFrequency" class="btn btn-primary">Update</button>
+                    </div>
+                    <canvas id="replyFrequencyChart" height="100"></canvas>
+                </div>
+            </div>
+
+            <!-- Thread Lifespan (Showing Thread Number too) -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Most Popular Thread Lifespan by Board</h5>
+                    <div class="d-flex align-items-center mb-3">
+                        <label for="lifespanStart" class="me-2">Start Date:</label>
+                        <input type="date" id="lifespanStart" class="form-control me-3" value="2024-11-01">
+
+                        <label for="lifespanEnd" class="me-2">End Date:</label>
+                        <input type="date" id="lifespanEnd" class="form-control me-3" value="2024-11-14">
+
+                        <button id="updateThreadLifespan" class="btn btn-primary">Update</button>
+                    </div>
+                    <canvas id="threadLifespanChart" height="100"></canvas>
+                </div>
+            </div>
+
+            <!-- Popular vs Unpopular Threads -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Popular vs. Unpopular Threads</h5>
+                    <p>Popular threads are defined by a certain reply threshold.</p>
+                    <div class="d-flex align-items-center mb-3">
+                        <label for="popThreshold" class="me-2">Threshold:</label>
+                        <input type="number" id="popThreshold" class="form-control me-3" value="100" style="width:100px;">
+
+                        <label for="popStart" class="me-2">Start Date:</label>
+                        <input type="date" id="popStart" class="form-control me-3" value="2024-11-01">
+
+                        <label for="popEnd" class="me-2">End Date:</label>
+                        <input type="date" id="popEnd" class="form-control me-3" value="2024-11-14">
+
+                        <button id="updatePopularUnpopular" class="btn btn-primary">Update</button>
+                    </div>
+                    <canvas id="popularUnpopularChart" height="100"></canvas>
+                </div>
+            </div>
+
+            <!-- Hourly Activity Heatmap (g & tv) -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Hourly Activity Heatmap (g & tv)</h5>
+                    <div class="d-flex align-items-center mb-3">
+                        <label for="heatmapStart" class="me-2">Start Date:</label>
+                        <input type="date" id="heatmapStart" class="form-control me-3" value="2024-11-01">
+                        <label for="heatmapEnd" class="me-2">End Date:</label>
+                        <input type="date" id="heatmapEnd" class="form-control me-3" value="2024-11-14">
+                        <button id="updateHeatmap" class="btn btn-primary">Update</button>
+                    </div>
+                    <canvas id="heatmapChart" height="400"></canvas>
+                </div>
+            </div>
+
+            <!-- Thread Popularity Histogram -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Thread Popularity Histogram</h5>
+                    <div class="d-flex align-items-center mb-3">
+                        <label for="popHistBoard" class="me-2">Board:</label>
+                        <select id="popHistBoard" class="form-select me-3">
+                            <option value="g">/g/</option>
+                            <option value="tv">/tv/</option>
+                            <option value="pol">/pol/</option>
+                        </select>
+
+                        <label for="popHistStart" class="me-2">Start Date:</label>
+                        <input type="date" id="popHistStart" class="form-control me-3" value="2024-11-01">
+
+                        <label for="popHistEnd" class="me-2">End Date:</label>
+                        <input type="date" id="popHistEnd" class="form-control me-3" value="2024-11-14">
+
+                        <button id="updatePopularityHistogram" class="btn btn-primary">Update</button>
+                    </div>
+                    <canvas id="popularityHistogramChart" height="100"></canvas>
+                </div>
+            </div>
+
+            <!-- Replies vs. Original Posts -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Replies vs. Original Posts by Board</h5>
+                    <div class="d-flex align-items-center mb-3">
+                        <label for="rvpStart" class="me-2">Start Date:</label>
+                        <input type="date" id="rvpStart" class="form-control me-3" value="2024-11-01">
+                        <label for="rvpEnd" class="me-2">End Date:</label>
+                        <input type="date" id="rvpEnd" class="form-control me-3" value="2024-11-14">
+                        <button id="updateRepliesVsPosts" class="btn btn-primary">Update</button>
+                    </div>
+                    <canvas id="repliesVsPostsChart" height="100"></canvas>
+                </div>
+            </div>
+
+            <!-- Toxicity Analysis -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Toxicity Analysis</h5>
+                    <p>Analyzing the count of threads by toxicity class</p>
+                    <div class="d-flex flex-wrap align-items-center mb-3">
+                        <label for="toxBoard" class="me-2">Board:</label>
+                        <select id="toxBoard" class="form-select me-3" style="width:auto;">
+                            <option value="g">/g/</option>
+                            <option value="tv">/tv/</option>
+                            <option value="pol">/pol/</option>
+                        </select>
+
+                        <label for="toxStart" class="me-2">Start Date:</label>
+                        <input type="date" id="toxStart" class="form-control me-3" style="width:auto;" value="2024-11-15">
+
+                        <label for="toxEnd" class="me-2">End Date:</label>
+                        <input type="date" id="toxEnd" class="form-control me-3" style="width:auto;" value="2024-11-30">
+
+                        <label for="toxIsDeleted" class="me-2">Is Deleted:</label>
+                        <select id="toxIsDeleted" class="form-select me-3" style="width:auto;">
+                            <option value="">Any</option>
+                            <option value="true">True</option>
+                            <option value="false">False</option>
+                        </select>
+
+                        <button id="updateToxicityChart" class="btn btn-primary">Update</button>
+                    </div>
+                    <canvas id="toxicityChart" height="100"></canvas>
+                </div>
+            </div>
+
+            <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+            <script>
+                const colorDaily = '#FF5722';
+                const colorHourly = '#00BCD4';
+                const colorActivityThreads = '#9C27B0';
+                const colorRepliesFreq = '#4CAF50';
+                const colorLifespan = '#FFA000';
+                const colorPopular = '#4CAF50';
+                const colorUnpopular = '#F44336';
+                const colorHist = '#FFC107';
+                const colorRvpOriginal = '#3F51B5';
+                const colorRvpReplies = '#E91E63';
+
+                // Daily chart
+                const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+                const dailyChart = new Chart(dailyCtx, {
+                    type: 'line',
+                    data: { labels: [], datasets: [
+                        { label: 'Total Posts', data: [], borderColor: colorDaily, fill:false, tension:0.3 }
+                    ]},
+                    options: { responsive:true, maintainAspectRatio:false }
+                });
+
+                function updateDailyChart() {
+                    const board = $('#dailyBoard').val();
+                    const start = $('#dailyStart').val();
+                    const end = $('#dailyEnd').val();
+                    $.getJSON('/get_4chan_daily_data', {board:board, start_date:start, end_date:end}, function(data) {
+                        dailyChart.data.labels = data.labels;
+                        dailyChart.data.datasets[0].data = data.data;
+                        dailyChart.data.datasets[0].label = `Total Posts on ${board}`;
+                        dailyChart.update();
+                    });
+                }
+                $('#updateDailyChart').on('click', updateDailyChart);
+                updateDailyChart();
+
+                // Hourly chart
+                const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+                const hourlyChart = new Chart(hourlyCtx, {
+                    type: 'line',
+                    data: { labels: [], datasets: [
+                        { label: 'Total Posts', data: [], borderColor: colorHourly, fill:false, tension:0.3 }
+                    ]},
+                    options: { responsive:true, maintainAspectRatio:false }
+                });
+
+                function updateHourlyChart() {
+                    const board = $('#hourlyBoard').val();
+                    const start = $('#hourlyStart').val();
+                    const end = $('#hourlyEnd').val();
+                    $.getJSON('/get_4chan_hourly_data', {board:board, start_date:start, end_date:end}, function(data) {
+                        hourlyChart.data.labels = data.labels;
+                        hourlyChart.data.datasets[0].data = data.data;
+                        hourlyChart.data.datasets[0].label = `Hourly Posts on ${board}`;
+                        hourlyChart.update();
+                    });
+                }
+                $('#updateHourlyChart').on('click', updateHourlyChart);
+                updateHourlyChart();
+
+                // Thread Activity Over Time
+                const threadActivityCtx = document.getElementById('threadActivityChart').getContext('2d');
+                const threadActivityChart = new Chart(threadActivityCtx, {
+                    type: 'line',
+                    data: { labels: [], datasets: [
+                        { label: 'Threads Created', data: [], borderColor: colorActivityThreads, fill:false, tension:0.3 },
+                        { label: 'Replies Received', data: [], borderColor: '#FF4081', fill:false, tension:0.3 }
+                    ]},
+                    options: { responsive:true, maintainAspectRatio:false }
+                });
+
+                function updateThreadActivity() {
+                    const board = $('#threadActivityBoard').val();
+                    const start = $('#threadActivityStart').val();
+                    const end = $('#threadActivityEnd').val();
+                    $.getJSON('/get_4chan_thread_activity', { board:board, start_date:start, end_date:end }, function(data) {
+                        threadActivityChart.data.labels = data.labels;
+                        threadActivityChart.data.datasets[0].data = data.threads_created;
+                        threadActivityChart.data.datasets[1].data = data.replies_received;
+                        threadActivityChart.update();
+                    });
+                }
+                $('#updateThreadActivity').on('click', updateThreadActivity);
+                updateThreadActivity();
+
+                // Reply Frequency
+                const replyFrequencyCtx = document.getElementById('replyFrequencyChart').getContext('2d');
+                const replyFrequencyChart = new Chart(replyFrequencyCtx, {
+                    type: 'bar',
+                    data: { labels: [], datasets: [
+                        { label: 'Avg Replies/Thread', data: [], backgroundColor:colorRepliesFreq }
+                    ]},
+                    options: { responsive:true, maintainAspectRatio:false }
+                });
+
+                function updateReplyFrequency() {
+                    const start = $('#replyFreqStart').val();
+                    const end = $('#replyFreqEnd').val();
+                    $.getJSON('/get_4chan_reply_frequency', {start_date:start, end_date:end}, function(data){
+                        replyFrequencyChart.data.labels = data.boards;
+                        replyFrequencyChart.data.datasets[0].data = data.avg_replies;
+                        replyFrequencyChart.update();
+                    });
+                }
+                $('#updateReplyFrequency').on('click', updateReplyFrequency);
+                updateReplyFrequency();
+
+                // Thread Lifespan
+                const threadLifespanCtx = document.getElementById('threadLifespanChart').getContext('2d');
+                let threadLifespanThreadIds = [];
+                const threadLifespanChart = new Chart(threadLifespanCtx, {
+                    type:'bar',
+                    data:{ labels:[], datasets:[
+                        { label:'Lifespan (hrs)', data:[], backgroundColor:colorLifespan }
+                    ]},
+                    options:{ 
+                        responsive:true, 
+                        maintainAspectRatio:false,
+                        plugins:{
+                            tooltip:{
+                                callbacks:{
+                                    label: function(context) {
+                                        const idx = context.dataIndex;
+                                        const threadId = threadLifespanThreadIds[idx];
+                                        const lifespan = context.formattedValue;
+                                        return `Lifespan: ${lifespan} hrs\nThread #${threadId}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                function updateThreadLifespan() {
+                    const start = $('#lifespanStart').val();
+                    const end = $('#lifespanEnd').val();
+                    $.getJSON('/get_4chan_thread_lifespan', {start_date:start, end_date:end}, function(data){
+                        threadLifespanChart.data.labels = data.boards;
+                        threadLifespanChart.data.datasets[0].data = data.lifespans;
+                        threadLifespanThreadIds = data.thread_ids;
+                        threadLifespanChart.update();
+                    });
+                }
+                $('#updateThreadLifespan').on('click', updateThreadLifespan);
+                updateThreadLifespan();
+
+                // Popular vs Unpopular
+                const popularUnpopularCtx = document.getElementById('popularUnpopularChart').getContext('2d');
+                const popularUnpopularChart = new Chart(popularUnpopularCtx, {
+                    type:'bar',
+                    data:{ labels:[], datasets:[
+                        { label:'Popular', data:[], backgroundColor:colorPopular },
+                        { label:'Unpopular', data:[], backgroundColor:colorUnpopular }
+                    ]},
+                    options:{ responsive:true, maintainAspectRatio:false, scales:{y:{beginAtZero:true}} }
+                });
+
+                function updatePopularUnpopular() {
+                    const threshold = $('#popThreshold').val();
+                    const start = $('#popStart').val();
+                    const end = $('#popEnd').val();
+                    $.getJSON('/get_4chan_popular_vs_unpopular', { threshold:threshold, start_date:start, end_date:end }, function(data){
+                        popularUnpopularChart.data.labels = data.boards;
+                        popularUnpopularChart.data.datasets[0].data = data.popular_counts;
+                        popularUnpopularChart.data.datasets[1].data = data.unpopular_counts;
+                        popularUnpopularChart.update();
+                    });
+                }
+                $('#updatePopularUnpopular').on('click', updatePopularUnpopular);
+                updatePopularUnpopular();
+
+                // Heatmap
+                let heatmapChart;
+                function updateHeatmap() {
+                    const start = $('#heatmapStart').val();
+                    const end = $('#heatmapEnd').val();
+                    $.getJSON('/get_4chan_hourly_heatmap', {start_date:start, end_date:end}, function(data){
+                        if (heatmapChart) heatmapChart.destroy();
+                        const datasets = data.days.map((day, i) => {
+                            return {
+                                label: day,
+                                data: data.matrix[i],
+                                borderColor: `hsl(${i*50},70%,50%)`,
+                                fill:false,
+                                tension:0.3
+                            }
+                        });
+                        const heatmapCtx = document.getElementById('heatmapChart').getContext('2d');
+                        heatmapChart = new Chart(heatmapCtx, {
+                            type:'line',
+                            data: { labels: data.hours, datasets: datasets },
+                            options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ title:{display:true,text:'Hour'}}, y:{ title:{display:true,text:'Activity Count'} } } }
+                        });
+                    });
+                }
+                $('#updateHeatmap').on('click', updateHeatmap);
+                updateHeatmap();
+
+                // Popularity Histogram
+                const popHistCtx = document.getElementById('popularityHistogramChart').getContext('2d');
+                const popHistChart = new Chart(popHistCtx, {
+                    type:'bar',
+                    data:{ labels:[], datasets:[
+                        { label:'Number of Threads', data:[], backgroundColor:colorHist }
+                    ]},
+                    options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true} } }
+                });
+
+                function updatePopularityHistogram() {
+                    const board = $('#popHistBoard').val();
+                    const start = $('#popHistStart').val();
+                    const end = $('#popHistEnd').val();
+                    $.getJSON('/get_4chan_popularity_histogram', {board:board, start_date:start, end_date:end}, function(data){
+                        popHistChart.data.labels = data.labels;
+                        popHistChart.data.datasets[0].data = data.counts;
+                        popHistChart.update();
+                    });
+                }
+                $('#updatePopularityHistogram').on('click', updatePopularityHistogram);
+                updatePopularityHistogram();
+
+                // Replies vs Posts
+                const rvpCtx = document.getElementById('repliesVsPostsChart').getContext('2d');
+                const repliesVsPostsChart = new Chart(rvpCtx, {
+                    type:'bar',
+                    data:{ labels:[], datasets:[
+                        { label:'Original Posts', data:[], backgroundColor:colorRvpOriginal },
+                        { label:'Replies', data:[], backgroundColor:colorRvpReplies }
+                    ]},
+                    options:{ responsive:true, maintainAspectRatio:false, scales:{y:{beginAtZero:true}} }
+                });
+
+                function updateRepliesVsPosts() {
+                    const start = $('#rvpStart').val();
+                    const end = $('#rvpEnd').val();
+                    $.getJSON('/get_4chan_replies_vs_posts', {start_date:start, end_date:end}, function(data){
+                        repliesVsPostsChart.data.labels = data.boards;
+                        repliesVsPostsChart.data.datasets[0].data = data.original_posts;
+                        repliesVsPostsChart.data.datasets[1].data = data.replies;
+                        repliesVsPostsChart.update();
+                    });
+                }
+                $('#updateRepliesVsPosts').on('click', updateRepliesVsPosts);
+                updateRepliesVsPosts();
+
+                // Toxicity Chart
+                const toxicityCtx = document.getElementById('toxicityChart').getContext('2d');
+                const toxicityChart = new Chart(toxicityCtx, {
+                    type:'bar',
+                    data:{ labels:[], datasets:[] },
+                    options:{
+                        responsive:true,
+                        maintainAspectRatio:false,
+                        scales:{
+                            y:{ beginAtZero:true, title:{display:true, text:'Count'} },
+                            x:{ title:{display:true, text:'Date'} }
+                        }
+                    }
+                });
+
+                function updateToxicityChart() {
+                const board = $('#toxBoard').val();
+                const start = $('#toxStart').val() || '2024-11-15';
+                const end = $('#toxEnd').val();
+                const is_deleted = $('#toxIsDeleted').val();
+
+                $.getJSON('/get_4chan_toxicity_data', {
+                    board: board,
+                    start_date: start,
+                    end_date: end,
+                    is_deleted: is_deleted
+                }, function(data) {
+                    toxicityChart.data.labels = data.labels;
+                    const newDatasets = [];
+                    const colors = ['#2196F3', '#F44336', '#4CAF50', '#FF9800', '#9C27B0', '#009688'];
+                    let colorIndex = 0;
+                    for (let cls of data.classes) {
+                        newDatasets.push({
+                            label: cls,
+                            data: data.counts[cls],
+                            backgroundColor: colors[colorIndex % colors.length]
+                        });
+                        colorIndex++;
+                    }
+                    toxicityChart.data.datasets = newDatasets;
+                    toxicityChart.update();
+                });
+            }
+
+                $('#updateToxicityChart').on('click', updateToxicityChart);
+                updateToxicityChart();
+
+            </script>
+
+            {% else %}
+            <h1 class="text-center mb-4">Dashboard</h1>
+            <p>Select a platform to view its dashboard.</p>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <footer class="bg-dark text-white text-center py-3 mt-4">
+        <p class="mb-0">© 2024 Interactive Dashboard. All Rights Reserved.</p>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    {% if platform == 'reddit' %}
+    <script>
+        $(document).ready(function () {
+            const overallCtx = document.getElementById('overallCommentsChart').getContext('2d');
+            const filteredCtx = document.getElementById('filteredCommentsChart').getContext('2d');
+            const redditCtx = document.getElementById('redditSubmissionsChart').getContext('2d');
+            const deletedPostsCtx = document.getElementById('deletedPostsChart').getContext('2d');
+            const upvotesCtx = document.getElementById('upvotesChart').getContext('2d');
+
+            let allData = {};
+            let allDeletedPostsData = {};
+
+            const overallCommentsChart = new Chart(overallCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Comments Per Hour', data: [], borderColor: '#FF4500', backgroundColor: 'rgba(255, 69, 0, 0.2)', tension: 0.4, fill: true }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        x: { ticks: { autoSkip: true, maxTicksLimit: 10 }, title: { display: true, text: 'Date and Time' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Number of Comments' } }
+                    }
+                }
+            });
+
+            const filteredCommentsChart = new Chart(filteredCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Filtered Comments', data: [], borderColor: '#1E90FF', backgroundColor: 'rgba(30, 144, 255, 0.2)', tension: 0.4, fill: true }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        x: { title: { display: true, text: 'Date and Time' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Number of Comments' } }
+                    }
+                }
+            });
+
+            const deletedPostsChart = new Chart(deletedPostsCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Deleted Posts', data: [], borderColor: '#FF6384', backgroundColor: 'rgba(255, 99, 132, 0.2)', tension: 0.4, fill: true }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        x: { title: { display: true, text: 'Date and Time' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Number of Deleted Posts' } }
+                    }
+                }
+            });
+
+            const redditSubmissionsChart = new Chart(redditCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Submissions Per Day', data: [], borderColor: '#00C851', backgroundColor: 'rgba(0, 200, 81, 0.2)', tension: 0.4, fill: true }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        x: { title: { display: true, text: 'Date' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Number of Submissions' } }
+                    }
+                }
+            });
+
+            function filterByHour(hour, data, chart) {
+                const filteredLabels = [];
+                const filteredData = [];
+                data.labels.forEach((label, index) => {
+                    const labelHour = parseInt(label.split(' ')[1].split(':')[0]);
+                    if (labelHour === parseInt(hour)) {
+                        filteredLabels.push(label);
+                        filteredData.push(data.data[index]);
+                    }
+                });
+                chart.data.labels = filteredLabels;
+                chart.data.datasets[0].data = filteredData;
+                chart.update();
+            }
+
+            function filterByHourDeleted(hour, data, chart) {
+                const filteredData = data.filter(item => {
+                    const itemHour = new Date(item.timestamp).getHours();
+                    return itemHour === parseInt(hour);
+                });
+                const labels = filteredData.map(item => item.timestamp);
+                const counts = filteredData.map(item => item.count);
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = counts;
+                chart.update();
+            }
+
+            function updateDashboard() {
+                $.getJSON('/get_comments_data', function (data) {
+                    allData = data;
+                    overallCommentsChart.data.labels = data.labels;
+                    overallCommentsChart.data.datasets[0].data = data.data;
+                    overallCommentsChart.update();
+                    
+                    $('#total-comments').text(data.total_comments);
+                    $('#peak-comments').text(data.peak_comments);
+                    $('#peak-hour').text(data.peak_hour);
+                    $('#total-deleted-posts').text(data.total_deleted_posts || 0);
+                    $('#active-users').text(data.active_users || 15478);
+                    $('#avg-comments-hour').text(data.avg_comments_hour || 0);
+                }).fail(function () {
+                    console.error("Failed to fetch comments data.");
+                });
+            }
+
+            function updateDeletedPostsChart(startDate, endDate) {
+                $.getJSON('/get_deleted_posts', { start_date: startDate, end_date: endDate })
+                    .done(function (data) {
+                        deletedPostsChart.data.labels = data.labels;
+                        deletedPostsChart.data.datasets[0].data = data.data;
+                        deletedPostsChart.update();
+                    })
+                    .fail(function (error) {
+                        console.error("Failed to fetch deleted posts data:", error.responseJSON);
+                    });
+            }
+
+            function updateRedditSubmissionsChart(startDate, endDate) {
+                $.ajax({
+                    url: '/get_reddit_submissions',
+                    method: 'GET',
+                    data: { start_date: startDate, end_date: endDate },
+                    dataType: 'json',
+                    success: function (submissionsData) {
+                        redditSubmissionsChart.data.labels = submissionsData.labels;
+                        redditSubmissionsChart.data.datasets[0].data = submissionsData.data;
+                        redditSubmissionsChart.update();
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("Failed to fetch Reddit submissions data:", error);
+                    }
+                });
+            }
+
+            function updateUpvotesChart(subreddit, startDate, endDate) {
+                $.getJSON(`/get_comment_upvotes?subreddit=${subreddit}&start_date=${startDate}&end_date=${endDate}`)
+                    .done((data) => {
+                        const upvotesChart = Chart.getChart(upvotesCtx.canvas.id);
+                        upvotesChart.data.labels = [];
+                        upvotesChart.data.datasets = [];
+                        data.forEach((post, index) => {
+                            const sortedUpvotes = post.comment_upvotes.sort((a, b) => b - a);
+                            upvotesChart.data.labels = [...Array(sortedUpvotes.length).keys()];
+                            upvotesChart.data.datasets.push({
+                                label: `Post ${index + 1}: ${post.post_title}`,
+                                data: sortedUpvotes,
+                                borderColor: `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 1)`,
+                                fill: false
+                            });
+                        });
+                        upvotesChart.update();
+                    })
+                    .fail((error) => {
+                        console.error('Failed to fetch upvotes data:', error);
+                        alert('Failed to load upvotes data. Please try again.');
+                    });
+            }
+
+            $('#hourRange').on('input', function () {
+                const selectedHour = $(this).val();
+                $('#selectedHour').text(selectedHour);
+                filterByHour(selectedHour, allData, filteredCommentsChart);
+                filterByHour(selectedHour, allData, deletedPostsChart);
+            });
+
+            $('#deletedHourRange').on('input', function () {
+                const selectedHour = $(this).val();
+                $('#deletedSelectedHour').text(selectedHour);
+                filterByHourDeleted(selectedHour, allDeletedPostsData, deletedPostsChart);
+            });
+
+            $('#updateUpvotesChart').off('click').on('click', function () {
+                const subreddit = $('#upvotesSubreddit').val();
+                const startDate = $('#upvotesStartDate').val();
+                const endDate = $('#upvotesEndDate').val();
+                if (startDate && endDate) {
+                    updateUpvotesChart(subreddit, startDate, endDate);
+                } else {
+                    alert('Please select a valid date range.');
+                }
+            });
+
+            $('#askQuestionForm').on('submit', function (event) {
+                event.preventDefault();
+                const prompt = $('#prompt').val();
+                const subreddit = $('#subreddit').val();
+            
+                if (prompt && subreddit) {
+                    $('#responseBlock').show();
+                    $('#answerText').text("Processing your question...");
+            
+                    $.ajax({
+                        url: '/ask_question',
+                        method: 'POST',
+                        data: { prompt: prompt, subreddit: subreddit },
+                        dataType: 'json',
+                        success: function (response) {
+                            const formattedAnswer = (response.answer || "No response received.")
+                                .replace(/\n\n/g, "<br><br>")
+                                .replace(/\n/g, "<br>");
+                            $('#answerText').html(formattedAnswer);
+                        },
+                        error: function (xhr, status, error) {
+                            console.error("Error during request:", error);
+                            $('#answerText').text("An error occurred. Please try again.");
+                        }
+                    });
+                } else {
+                    alert('Please fill in all fields before asking a question.');
+                }
+            });
+
+            $('#fetchSubmissionsData').on('click', function (event) {
+                event.preventDefault();
+                const startDate = $('#startDate').val();
+                const endDate = $('#endDate').val();
+                if (startDate && endDate) {
+                    updateRedditSubmissionsChart(startDate, endDate);
+                } else {
+                    alert('Please select a valid date range.');
+                }
+            });
+
+            updateDashboard();
+            updateDeletedPostsChart();
+        });
+    </script>
+    {% endif %}
+</body>
+</html>
