@@ -19,7 +19,6 @@
 The **Data Crawlers Dashboard** is a comprehensive web-based application designed to monitor, manage, and visualize data crawling activities from platforms like Reddit and 4chan. It provides users with an intuitive interface to oversee multiple data crawlers, track their performance, analyze collected data, and gain insights through various interactive charts and metrics.
 
 ## Features
-- Professor's Special Note is the Question Interface part which he said to include in README.md. 
 - **Question Interface:** Integrates a large language model from Hugging face (EleutherAI/gpt-neo-1.3B) for generating AI responses to user queries about the data from 4chan and reddit.
 - **Real-time Monitoring:** View the status and performance metrics of active data crawlers.
 - **Dynamic Updates:** Automatic refreshing of dashboard data without needing to reload the page.
